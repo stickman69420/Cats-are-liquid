@@ -1,0 +1,482 @@
+<!doctype HTML>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+		<script>
+			addEventListener("error", (e) => {
+				alert(e.lineno+": "+e.message+"\nMain")
+			});
+			// Source - https://stackoverflow.com/a/4787460
+			// Posted by SLaks, modified by community. See post 'Timeline' for change history
+			// Retrieved 2026-02-11, License - CC BY-SA 4.0
+			
+			var lastLoop = new Date();
+			function gameLoop() { 
+    			var thisLoop = new Date();
+   				var fps = 1000 / (thisLoop - lastLoop);
+    			lastLoop = thisLoop;
+				//fpsOut.innerHTML = fps + " fps"
+				return fps
+			}
+		</script>
+		<style>
+			canvas {
+				-webkit-user-select: none;
+				-moz-user-select: none;
+				-ms-user-select: none;
+				user-select: none;
+				-webkit-user-drag: none;
+				touch-action: none;
+			}
+		</style>
+	</head>
+	<body style="position:fixed;height:100%;width:100%;margin:0px;background-color:#AAAAAA;align-content: center;text-align: center;"><!--input type="range" min="0.001" max="0.02" step="0.0005" onchange="player.bodyCons.forEach((e) => {e.stiffness = stifslid.value})" id="stifslid"--><div style="width:100%;height:100%;display:flex;justify-content:center;align-items:center;" id="loadBarDiv"><progress style="width:50%;" id="loadBar" max="1" value="0"></progress></div>
+		<script src="https://cdn.jsdelivr.net/npm/matter-js@0.20.0/build/matter.min.js"></script>
+		<script src="https://cdn.jsdelivr.net/npm/poly-decomp@0.2.1/build/decomp.min.js"></script>
+		<script>
+			async function loadJSON(url,func,errfunc) {
+				let args = []
+				try {
+					for (let i = 0; i < arguments.length; ++i) args[i] = arguments[i]
+					args.splice(0,3)
+					const request = new Request(url);
+					//alert("a")
+					const response = await fetch(request);
+					//alert(await response.text())
+					const done = await response.json()
+					func(done,...args)
+					imageLoaded()
+					return(done)
+				} catch (err) {
+					//errfunc(...args)
+					//alert(err)
+					throw new Error("Invalid level - "+err.line+": "+err.message)
+				}
+			}
+			
+			const imgNames = ["glass","grass","tile","tile cracked","tile wall","tile wall cracked","tiles","tiles cracked","tiles wall","tiles wall cracked","water","wet grass"]
+			let tileImgs = {}
+			
+			const level = sessionStorage.getItem("level") ?? 0
+			if (level == undefined || level < 0) throw new Error("Invalid level")
+			let loadc = 0
+			let loadm = imgNames.length
+			
+			async function loadAll() {
+				try {
+					let promises = []
+					imgNames.forEach((e) => {
+						tileImgs[e] = new Image()
+						tileImgs[e].src = "./images/tiles/"+e+".png"
+						promises.push(new Promise((resolve,reject) => {
+							tileImgs[e].onload = function () {
+								loadc++
+								loadBar.value = loadc/loadm
+								resolve()
+							}
+							tileImgs[e].onerror = function () {
+								reject()
+							}
+						}))
+					})
+					await Promise.all(promises)
+					loadBarDiv.remove()
+					loadJSON("./levels/level"+level+".json",function (e) {
+						try {
+							mapJSON = e
+							const canvas = document.createElement("canvas")
+							const ctx = canvas.getContext("2d")
+							ctx.webkitImageSmoothingEnabled = false
+							ctx.mozImageSmoothingEnabled = false
+							ctx.imageSmoothingEnabled = false
+							mapJSON.forEach((e) => {
+								const box = Bodies.rectangle(e.x+e.w/2,e.y+e.h/2,e.w,e.h,e.o ?? {})
+								if (e.img) {
+									canvas.height = e.h
+									canvas.width = e.w
+									ctx.clearRect(0,0,canvas.width,canvas.height)
+									const vert = e.h > e.w
+									const small = Math.min(e.h,e.w)
+									for (let i=0;i<Math.max(e.h,e.w);i++) {
+										ctx.drawImage(tileImgs[e.img],vert ? 0 : i*small,vert ? i*small : 0,small,small)
+									}
+									box.render.sprite.texture = canvas.toDataURL()
+								}
+								Body.setStatic(box,true)
+								map.push(box)
+								Composite.add(engine.world, box)
+							})
+							// run the renderer
+							Render.run(render);
+							
+							// create runner
+							var runner = Runner.create();
+							Runner.run(runner, engine);
+						} catch (err) {
+							alert(err.line+": "+err.message)
+						}
+					}/*,function () {
+						throw new Error("Invalid level")
+					}*/)
+				} catch (err) {
+					alert(err)
+					throw new Error(err.line+": "+err.message)
+				}
+			}
+			
+			loadAll()
+			
+			let mapJSON
+			//alert("./levels/level"+level+".json")
+			
+			let audios = []
+			let dur = []
+			for (let i=0;i<6;i++) {
+				audios[i] = new Audio("sounds/meow"+i+".mp3")
+				audios[i].addEventListener('loadedmetadata', () => {
+					dur[i] = audios[i].duration*1000
+				})
+				audios[i].addEventListener("error", (e) => {
+					alert(e.currentTarget.error.code)
+				});
+			}
+			
+			// module aliases
+			var Engine = Matter.Engine,
+			Render = Matter.Render,
+			Runner = Matter.Runner,
+			Bodies = Matter.Bodies,
+			MouseConstraint = Matter.MouseConstraint,
+			Mouse = Matter.Mouse,
+			Composite = Matter.Composite,
+			Constraint = Matter.Constraint,
+			Composites = Matter.Composites,
+			Body = Matter.Body,
+			Bounds = Matter.Bounds
+			Collision = Matter.Collision;
+			
+			Matter.Common.setDecomp(decomp)
+			
+			const defaultMask = 0x0001
+			
+			let controls = [{"x":10,"y":490,"w":50,"h":50,"value":0,"bgcol":"#0FF","bcol":"#000","col":"#0AF","text":"<","act":function(){this.value = -0.002},"deact":function(){this.value = 0}},{"x":110,"y":490,"w":50,"h":50,"value":0,"bcol":"#000","bgcol":"#0FF","col":"#0AF","text":">","act":function(){this.value = 0.002},"deact":function(){this.value = 0}},{"x":60,"y":440,"w":50,"h":50,"value":0,"bgcol":"#0FF","bcol":"#000","col":"#0AF","text":"/\\","act":function(){this.value = -0.0025},"deact":function(){this.value = 0}},{"x":60,"y":540,"w":50,"h":50,"value":0,"bgcol":"#0FF","bcol":"#000","col":"#0AF","text":"\\/","act":function(){this.value = 0.0025},"deact":function(){this.value = 0}},{"x":750,"y":50,"w":50,"h":500,"value":0.02/0.04,"bgcol":"#0FF","bcol":"#000","col":"#0AF","fill":0.02/0.04,"react":true,"act":function(off){this.value = Math.min(Math.max(1-(off[1]/this.h),0),1);player.bodyCons.forEach((e) => {e.stiffness = 0.001+0.019*this.value});this.fill=this.value}},{"x":60,"y":490,"w":50,"h":50,"time":0,"max":0,"bgcol":"#0FF","bcol":"#000","col":"#0AF","img":"./images/sound.png","act":function () {const ind = Math.floor(Math.random()*6);audios[ind].play();this.time = dur[ind];this.max = this.time;}}]
+			
+			controls.forEach((e) => {
+				if (e.img) {
+					e.Img = new Image()
+					e.Img.src = e.img
+				}
+			})
+			
+			// create an engine
+			var engine = Engine.create({enableSleeping: false});
+			
+			// create a renderer
+			var render = Render.create({
+				element: document.body,
+				engine: engine,
+				options: {
+					wireframes: false,
+					background: "#88FFFF",
+					hasBounds: true
+				}
+			});
+			
+			render.canvas.addEventListener("wheel",function (e) {
+				e.preventDefault()
+				let slider = controls[4]
+				slider.act([0,slider.value*slider.h+slider.y+Math.sign(e.deltaY)/10])
+			})
+			
+			let map = []
+			
+			let circle = []
+			/*let circlewalls = []
+			let circlewalls2 = []*/
+			const circDet = 20
+			for (let i=0;i<circDet;i++) {
+				const cur = Bodies.circle(25*Math.cos(i*Math.PI/circDet*2),25*Math.sin(i*Math.PI/circDet*2),2,{
+					"collisionFilter": {
+						"mask": defaultMask
+					}
+				})
+				/*const bet = Bodies.rectangle(0,0,1,10,{
+					"collisionFilter": {
+						"category": 2,
+						"mask": 0
+					}
+				})
+				const on = Bodies.rectangle(0,0,1,10,{
+					"collisionFilter": {
+						"category": 2,
+						"mask": 0
+					}
+				})*/
+				//bet.scale = 1
+				Body.setMass(cur,0.1)
+				Composite.add(engine.world, cur)
+				/*Composite.add(engine.world, bet)
+				Composite.add(engine.world, on)*/
+				circle.push(cur)
+				/*circlewalls.push(bet)
+				circlewalls2.push(on)*/
+			}
+			
+			/*const eyes = Bodies.rectangle(0, 0, 25, 15, {
+				"collisionFilter": {
+					"mask": defaultMask | 0x0002
+				}
+			})*/
+			const eyes = Bodies.fromVertices(0, 0, [/*{"x":-12.5,"y":-6.5},{"x":-12.5,"y":-7.5},{"x":-11.5,"y":-7.5},{"x":0,"y":-1},{"x":12.5,"y":-6.5},{"x":12.5,"y":-7.5},{"x":11.5,"y":-7.5},{"x":1,"y":0},{"x":12.5,"y":6.5},{"x":12.5,"y":7.5},{"x":11.5,"y":7.5},{"x":0,"y":1},{"x":-12.5,"y":6.5},{"x":-12.5,"y":7.5},{"x":-11.5,"y":7.5},{"x":-1,"y":0}*/{"x":-12.5,"y":-6.5},{"x":-12.5,"y":-7.5},{"x":-11.5,"y":-7.5},{"x":0,"y":-1},{"x":11.5,"y":-7.5},{"x":12.5,"y":-7.5},{"x":12.5,"y":-6.5},{"x":1,"y":0},{"x":12.5,"y":6.5},{"x":12.5,"y":7.5},{"x":11.5,"y":7.5},{"x":0,"y":1},{"x":-11.5,"y":7.5},{"x":-12.5,"y":7.5},{"x":-12.5,"y":6.5},{"x":-1,"y":0}], {
+				"collisionFilter": {
+					"mask": defaultMask | 0x0002
+				}
+			})
+			Body.setMass(eyes,5)
+			Composite.add(engine.world, eyes)
+			
+			let circons = []
+			circle.forEach((e,ee) => {
+				const cons = Constraint.create({
+					"bodyA": e,
+					"bodyB": eyes,
+					"stiffness": 0.0125,
+					"damping": 0.1,
+					"render": {
+						"strokeStyle": "#000",
+						"visible": true
+					}
+				})
+				Composite.add(engine.world, cons)
+				circle.forEach((r,rr) => {
+					if (rr > ee) {
+						const cons = Constraint.create({
+							"bodyA": e,
+							"bodyB": r,
+							"stiffness": 0.005,
+							"damping": 0.1,
+							"render": {
+								"strokeStyle": "#000",
+								"visible": true
+							}
+						})
+						circons.push(cons)
+						Composite.add(engine.world, cons)
+					}
+				})
+			})
+			
+			let player = {"x":0,"y":0,"targLoc":[0,0],"body":circle,"bodyCons":circons,"eyes": eyes/*,"bodyWalls":circlewalls,"bodyWalls2":circlewalls2*/}
+			
+			/*const floor = Bodies.rectangle(0, 500, 400, 50)
+			Body.setStatic(floor,true)
+			map.push(floor)
+			Composite.add(engine.world, floor)
+			
+			const walla = Bodies.rectangle(-200, 400, 50, 200)
+			Body.setStatic(walla,true)
+			map.push(walla)
+			Composite.add(engine.world, walla)
+			
+			const wallb = Bodies.rectangle(200, 380, 50, 160)
+			Body.setStatic(wallb,true)
+			map.push(wallb)
+			Composite.add(engine.world, wallb)*/
+			
+			let camBounds = Bounds.create([{"x":0,"y":0},{"x":800,"y":600}])
+			render.bounds = camBounds
+			
+			render.canvas.style.width = "100%";
+			render.canvas.style.overflow = "hidden";
+			
+			let maice = {}
+			
+			const average = array => array.reduce((a, b) => a + b) / array.length;
+			
+			render.canvas.addEventListener("pointerdown", function(e) {
+				const loc = [e.offsetX/render.canvas.offsetWidth*render.canvas.width,e.offsetY/render.canvas.offsetHeight*render.canvas.height]
+				controls.forEach((ee,i) => {
+					if ((!ee.touch || e.pointerType == "touch") && loc[0] > ee.x && loc[0] < ee.x+ee.w && loc[1] > ee.y && loc[1] < ee.y+ee.h) {
+						if (ee.act) ee.act([loc[0]-ee.x,loc[1]-ee.y])
+						e.contInd = i
+					}
+				})
+				if (e.contInd == undefined) {
+					const worldLoc = [camBounds.min.x+loc[0],camBounds.min.y+loc[1]]
+					e.world = true
+					player.targLoc = loc
+				}
+				maice[e.pointerId] = e
+			})
+			render.canvas.addEventListener("pointermove", function(e) {
+				const loc = [e.offsetX/render.canvas.offsetWidth*render.canvas.width,e.offsetY/render.canvas.offsetHeight*render.canvas.height]
+				if ((maice[e.pointerId] ?? {}).contInd != undefined) {
+					let ee = controls[maice[e.pointerId].contInd]
+						if (!(loc[0] > ee.x && loc[0] < ee.x+ee.w && loc[1] > ee.y && loc[1] < ee.y+ee.h)) {
+							if (controls[maice[e.pointerId].contInd].deact) ee.deact([loc[0]-ee.x,loc[1]-ee.y])
+						} else e.contInd = maice[e.pointerId].contInd
+					} else {
+					controls.forEach((ee,i) => {
+						if ((!ee.touch || e.pointerType == "touch") && loc[0] > ee.x && loc[0] < ee.x+ee.w && loc[1] > ee.y && loc[1] < ee.y+ee.h) {
+							if (ee.act) ee.act([loc[0]-ee.x,loc[1]-ee.y])
+							e.contInd = i
+						}
+					})
+				}
+				if ((maice[e.pointerId] ?? {}).contInd != undefined) {
+					const ee = controls[maice[e.pointerId].contInd]
+					if (ee.act && ee.react) ee.act([loc[0]-ee.x,loc[1]-ee.y])
+				}
+				if ((maice[e.pointerId] ?? {}).world) {
+					const worldLoc = [camBounds.min.x+loc[0],camBounds.min.y+loc[1]]
+					e.world = true
+					player.targLoc = loc
+				}
+				maice[e.pointerId] = e
+			})
+			render.canvas.addEventListener("pointerup", function(e) {
+				const loc = [e.offsetX/render.canvas.offsetWidth*render.canvas.width,e.offsetY/render.canvas.offsetHeight*render.canvas.height]
+				if ((maice[e.pointerId] ?? {}).contInd != undefined) {
+					const ee = controls[maice[e.pointerId].contInd]
+					if (ee.deact) ee.deact([loc[0]-ee.x,loc[1]-ee.y])
+				}
+				if ((maice[e.pointerId] ?? {}).world) player.mouseWorldLoc = undefined
+				maice[e.pointerId] = undefined
+			})
+			let colcount = [0,0,0,0]
+			Matter.Events.on(engine, "beforeUpdate", (t,o,n) => {
+				const gravity = engine.world.gravity
+				colcount = [0,0,0,0]
+				map.forEach((e) => {
+					player.body.forEach((r) => {
+						let coll
+						if ((coll = Collision.collides(e,r))) {
+							if (coll.normal.y > 0.5) colcount[2]++
+							else if (coll.normal.y < -0.5) colcount[0]++
+							else if (coll.normal.x > 0.5) colcount[3]++
+							else if (coll.normal.x < -0.5) colcount[1]++
+						}
+					})
+				})
+				Body.applyForce(player.eyes,player.eyes.position,{"x":controls[0].value+controls[1].value,"y":controls[2].value*colcount[0]+controls[3].value})
+				Body.applyForce(player.eyes, player.eyes.position, {x: -gravity.x * gravity.scale * player.eyes.mass,y: -gravity.y * gravity.scale * player.eyes.mass});
+				Body.setAngle(player.eyes, Math.PI/2+Math.atan2(player.eyes.position.y-player.targLoc[1]-camBounds.min.y,player.eyes.position.x-player.targLoc[0]-camBounds.min.x))
+				Body.setAngularVelocity(player.eyes,0)
+				controls[5].time -= t.delta
+				/*render.context.font = "20px Arial"
+				player.body.forEach((e,ee) => {
+					let wall = player.bodyWalls[ee]
+					let r = player.body[(ee+1)%player.body.length]
+					Body.setPosition(wall,{"x":(e.position.x+r.position.x)/2,"y":(e.position.y+r.position.y)/2})
+					Body.setAngle(wall,0)
+					const size = Math.hypot(e.position.x-r.position.x,e.position.y-r.position.y)
+					Body.scale(wall, size/wall.scale, 1)
+					//render.context.fillText((size/wall.scale)+","+size,400,10+ee*25)
+					wall.scale = size
+					Body.setAngle(wall,Math.atan2(e.position.y-r.position.y,e.position.x-r.position.x))
+					Body.setAngularVelocity(wall,0)
+					//Body.applyForce(wall, wall.position, {x: -gravity.x * gravity.scale * wall.mass,y: -gravity.y * gravity.scale * wall.mass});
+					Body.setVelocity(wall,e.velocity)
+					let wall2 = player.bodyWalls2[ee]
+					let r2 = player.body[((ee-1)+player.body.length)%player.body.length]
+					Body.setPosition(wall,e.position)
+					Body.setAngle(wall,0)
+					const size2 = Math.hypot(r2.position.x-r.position.x,r2.position.y-r.position.y)
+					Body.scale(wall, size2/wall.scale, 1)
+					wall.scale = size2
+					Body.setAngle(wall,Math.atan2(r2.position.y-r.position.y,r2.position.x-r.position.x))
+					Body.setAngularVelocity(wall,0)
+					Body.setVelocity(wall,e.velocity)
+				})*/
+			})
+			Matter.Events.on(render, "beforeRender", (t,o,n) => {
+				/*manDraw.forEach((e) => {
+					let bound = e.body.bounds
+					e.draw = bound.min.x <= camBounds.max.x && bound.max.x >= camBounds.min.x && bound.min.y <= camBounds.max.y && bound.max.y >= camBounds.min.y
+				})
+				terDraw.forEach((e) => {
+					e.draw = e.x <= camBounds.max.x && e.x+e.img.width >= camBounds.min.x && e.y <= camBounds.max.y && e.y+e.img.height >= camBounds.min.y
+				})*/
+				player.x = average(player.body.map(b => b.position.x))
+				player.y = average(player.body.map(b => b.position.y))
+				Matter.Bounds.shift(camBounds, {"x":player.x-416,"y":player.y-316})
+				render.canvas.style.width = Math.min(100,(100/(render.canvas.height/render.canvas.width))*(window.innerHeight/window.innerWidth))+"%";
+			})
+			Matter.Events.on(render, "afterRender", (t,o,n) => {
+				render.context.fillStyle = "#000"
+				render.context.beginPath()
+				render.context.moveTo(player.body[0].position.x-camBounds.min.x,player.body[0].position.y-camBounds.min.y)
+				player.body.toReversed().forEach((e) => {
+					render.context.lineTo(e.position.x-camBounds.min.x,e.position.y-camBounds.min.y)
+				})
+				render.context.fill()
+				
+				for (let i=-12.5;i<=12.5;i+=25) {
+					render.context.beginPath();
+					render.context.arc(player.eyes.position.x+i*Math.cos(player.eyes.angle)-camBounds.min.x, player.eyes.position.y+i*Math.sin(player.eyes.angle)-camBounds.min.y, 7, 0, Math.PI * 2);
+					render.context.fillStyle = '#000';
+					render.context.fill();
+					render.context.strokeStyle = '#FF0';
+					render.context.stroke();
+				}
+				
+				if (controls[5].time >= 0) {
+					render.context.fillStyle = '#F77'
+					render.context.beginPath()
+					render.context.save()
+					render.context.translate(player.eyes.position.x-camBounds.min.x,player.eyes.position.y-camBounds.min.y)
+					render.context.rotate(player.eyes.angle)
+					render.context.translate(0,5)
+					render.context.moveTo(-5,0)
+					render.context.lineTo(5,0)
+					render.context.scale(1,Math.max(2*Math.sin(controls[5].time/controls[5].max*Math.PI),0))
+					render.context.arc(0,0,5,0,Math.PI)
+					render.context.restore();
+					render.context.fill()
+				}
+				
+				/*render.context.beginPath();
+				render.context.moveTo(100, 200);
+				render.context.bezierCurveTo(150, 120, 250, 120, 300, 200);
+				render.context.bezierCurveTo(250, 280, 150, 280, 100, 200);
+				render.context.fillStyle = '#FFFFFF';
+				render.context.fill();
+				//render.context.lineWidth = 4;
+				//render.context.strokeStyle = '#000000';
+				//render.context.stroke();
+				
+				render.context.beginPath();
+				render.context.arc(200, 200, 60, 0, Math.PI * 2);
+				render.context.fillStyle = '#FF0';
+				render.context.fill();
+				//render.context.stroke();
+				
+				render.context.beginPath();
+				render.context.arc(200, 200, 55, 0, Math.PI * 2);
+				render.context.fillStyle = '#000000';
+				render.context.fill();*/
+				
+				render.context.textAlign = "center"
+				render.context.textBaseline = "middle"
+				controls.forEach((e) => {
+					render.context.fillStyle = e.bgcol
+					render.context.strokeStyle = e.bcol
+					render.context.fillRect(e.x,e.y,e.w,e.h)
+					render.context.strokeRect(e.x,e.y,e.w,e.h)
+					render.context.fillStyle = e.col
+					if (e.text) {
+						render.context.font = "100px arial"
+						render.context.font = Math.min(100*e.w/render.context.measureText(e.text).width,e.h)+"px arial"
+						render.context.fillText(e.text,e.x+e.w/2,e.y+e.h/2)
+					} else if (e.fill != undefined) {
+						render.context.fillRect(e.x,e.y+e.h*(1-e.fill),e.w,e.h*e.fill)
+					} else if (e.img) {
+						if (e.Img.complete) render.context.drawImage(e.Img,e.x,e.y,e.w,e.h)
+					}
+				})
+				//render.context.fillText(JSON.stringify(colcount),400,300)
+			})
+		</script>
+	</body>
+</html>

@@ -1,0 +1,103 @@
+<!doctype HTML>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+		<script>
+			addEventListener("error", (e) => {
+				alert(e.lineno+": "+e.message+"\nLS")
+			});
+		</script>
+		<style>
+			canvas {
+				-webkit-user-select: none;
+				-moz-user-select: none;
+				-ms-user-select: none;
+				user-select: none;
+				-webkit-user-drag: none;
+				touch-action: none;
+			}
+		</style>
+	</head>
+	<body style="position:fixed;height:100%;width:100%;margin:0px;background-color:#AAAAAA;align-content: center;text-align: center;">
+		<canvas id="canvas" width="800" height="600" style="background-color:#8FF;"></canvas>
+		<script>
+			const ctx = canvas.getContext("2d")
+			const levelC = 35
+			const bSize = 100
+			const colNum = Math.floor(800/(bSize+10))
+			const paddingX = (800-(colNum*bSize+(colNum-1)*10))/2
+			const rowNum = Math.floor(600/(bSize+10))
+			const paddingY = (600-(rowNum*bSize+(rowNum-1)*10))/2
+			ctx.textAlign = "center"
+			ctx.textBaseline = "middle"
+			let selAnim = []
+			for (let i=0;i<levelC;i++) {
+				selAnim.push({"target":1,"size":1})
+			}
+			canvas.addEventListener("pointerdown",function (e) {
+				const loc = [e.offsetX/canvas.offsetWidth*canvas.width,e.offsetY/canvas.offsetHeight*canvas.height]
+				const sel = [Math.floor((loc[0]-paddingX)/(bSize+10)),Math.floor((loc[1]-paddingY)/(bSize+10))]
+				if (loc[0]-(sel[0]*(bSize+10)+paddingX) <= bSize && loc[1]-(sel[1]*(bSize+10)+paddingY) <= bSize) {
+					if (sel[0] >= 0 && sel[1] >= 0 && sel[0] < colNum && sel[1] < rowNum) {
+						const trueSel = sel[0]+sel[1]*colNum
+						if (trueSel >= 0 && trueSel < levelC) {
+							sessionStorage.setItem("level",trueSel)
+							window.location = "./game.html"
+						}
+					}
+				}
+			})
+			let maice = {}
+			canvas.addEventListener("pointermove",function (e) {
+				const preInd = (maice[e.pointerId] ?? {}).sel
+				const loc = [e.offsetX/canvas.offsetWidth*canvas.width,e.offsetY/canvas.offsetHeight*canvas.height]
+				const sel = [Math.floor((loc[0]-paddingX)/(bSize+10)),Math.floor((loc[1]-paddingY)/(bSize+10))]
+				let trueSel
+				if (loc[0]-(sel[0]*(bSize+10)+paddingX) <= bSize && loc[1]-(sel[1]*(bSize+10)+paddingY) <= bSize) {
+					if (sel[0] >= 0 && sel[1] >= 0 && sel[0] < colNum && sel[1] < rowNum) {
+						trueSel = sel[0]+sel[1]*colNum
+						if (trueSel >= 0 && trueSel < levelC) {
+							selAnim[trueSel].target = 1.15
+							if (preInd != undefined && preInd != trueSel) selAnim[preInd].target = 1
+							e.sel = trueSel
+						}
+					}
+				}
+				if (!(trueSel >= 0) && (maice[e.pointerId] ?? {}).sel != undefined) {
+					selAnim[maice[e.pointerId].sel].target = 1
+				}
+				maice[e.pointerId] = e
+			})
+			setInterval(() => {
+				ctx.setTransform(1,0,0,1,0,0)
+				ctx.clearRect(0,0,canvas.width,canvas.height)
+				canvas.style.width = Math.min(100,(100/(canvas.height/canvas.width))*(window.innerHeight/window.innerWidth))+"%";
+				for (let i=0;i<levelC;i++) {
+					ctx.setTransform(1,0,0,1,(i%colNum)*(bSize+10)+paddingX+bSize/2,Math.floor(i/colNum)*(bSize+10)+paddingY+bSize/2)
+					selAnim[i].size = (selAnim[i].size+(selAnim[i].target-selAnim[i].size)/10)
+					if (Math.round(selAnim[i].size*100)/100 == 1.15) selAnim[i].size = 1.15
+					if (Math.round(selAnim[i].size*100)/100 == 1) selAnim[i].size = 1
+					ctx.scale(selAnim[i].size,selAnim[i].size)
+					const levText = "Level "+(i+1)
+					ctx.fillStyle = "#0AF"
+					ctx.fillRect(-bSize/2,-bSize/2,bSize,bSize)
+					ctx.fillStyle = "#0FF"
+					ctx.strokeRect(-bSize/2,-bSize/2,bSize,bSize)
+					ctx.font = "100px arial"
+					ctx.font = Math.min(100*bSize/ctx.measureText(levText).width,bSize)+"px arial"
+					ctx.fillText(levText,0,0)
+					/*ctx.font = "10px arial"
+					ctx.fillStyle = "#000"
+					ctx.fillText(JSON.stringify(selAnim[i]),0,50)*/
+				}
+				/*ctx.fillStyle = "#000"
+				ctx.fillText(d,400,300)*/
+			})
+			/*let d = 0
+			canvas.addEventListener("wheel",function (e) {
+				d = e.deltaY
+			})*/
+		</script>
+	</body>
+</html>
