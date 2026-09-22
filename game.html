@@ -28,10 +28,11 @@
 				user-select: none;
 				-webkit-user-drag: none;
 				touch-action: none;
+				image-rendering: pixelated;
 			}
 		</style>
 	</head>
-	<body style="position:fixed;height:100%;width:100%;margin:0px;background-color:#AAAAAA;align-content: center;text-align: center;"><!--input type="range" min="0.001" max="0.02" step="0.0005" onchange="player.bodyCons.forEach((e) => {e.stiffness = stifslid.value})" id="stifslid"--><div style="width:100%;height:100%;display:flex;justify-content:center;align-items:center;" id="loadBarDiv"><progress style="width:50%;" id="loadBar" max="1" value="0"></progress></div>
+	<body style="position:fixed;height:100%;width:100%;margin:0px;background-color:#AAAAAA;align-content: center;text-align: center;"><!--input type="range" min="0.001" max="0.02" step="0.0005" onchange="player.bodyCons.forEach((e) => {e.stiffness = stifslid.value})" id="stifslid"--><div style="width:100%;height:100%;display:flex;justify-content:center;align-items:center;" id="loadBarDiv"><progress style="width:50%;" id="loadBar" max="1" value="0"></progress></div><canvas id="canvas" style="position:absolute;visibility:hidden;"></canvas>
 		<script src="https://cdn.jsdelivr.net/npm/matter-js@0.20.0/build/matter.min.js"></script>
 		<script src="https://cdn.jsdelivr.net/npm/poly-decomp@0.2.1/build/decomp.min.js"></script>
 		<script>
@@ -55,13 +56,38 @@
 				}
 			}
 			
-			const imgNames = ["glass","grass","tile","tile cracked","tile wall","tile wall cracked","tiles","tiles cracked","tiles wall","tiles wall cracked","water","wet grass"]
+			const imgNames = ["glass","grass top","tile","tile cracked","tile wall","tile wall cracked","tiles","tiles cracked","tiles wall","tiles wall cracked","water","wet grass","uranium","uranium broken","uranium empty","grass","dirt","binary","stone"]
 			let tileImgs = {}
 			
-			const level = sessionStorage.getItem("level") ?? 0
+			const level = sessionStorage.getItem("level") ?? 1
 			if (level == undefined || level < 0) throw new Error("Invalid level")
 			let loadc = 0
 			let loadm = imgNames.length
+			
+			// Source - https://stackoverflow.com/a/24793573
+			// Posted by RobG
+			// Retrieved 2026-09-20, License - CC BY-SA 3.0
+			
+			function areaFromCoords(coordArray) {
+				var x = coordArray,
+				a = 0;
+				
+				// Must have even number of elements
+				if (x.length % 2) return;
+				
+				// Process pairs, increment by 2 and stop at length - 2
+				for (var i=0, iLen=x.length-2; i<iLen; i+=2) {
+					a += x[i]*x[i+3] - x[i+2]*x[i+1];
+				}
+				return Math.abs(a/2);
+			}
+			
+			const ctx = canvas.getContext("2d")
+			ctx.webkitImageSmoothingEnabled = false
+			ctx.mozImageSmoothingEnabled = false
+			ctx.imageSmoothingEnabled = false
+			
+			let maxeat = 0
 			
 			async function loadAll() {
 				try {
@@ -82,31 +108,34 @@
 					})
 					await Promise.all(promises)
 					loadBarDiv.remove()
-					loadJSON("./levels/level"+level+".json",function (e) {
+					loadJSON("./levels/level"+level+".json",function (r) {
 						try {
-							mapJSON = e
-							const canvas = document.createElement("canvas")
-							const ctx = canvas.getContext("2d")
-							ctx.webkitImageSmoothingEnabled = false
-							ctx.mozImageSmoothingEnabled = false
-							ctx.imageSmoothingEnabled = false
-							mapJSON.forEach((e) => {
-								const box = Bodies.rectangle(e.x+e.w/2,e.y+e.h/2,e.w,e.h,e.o ?? {})
-								if (e.img) {
-									canvas.height = e.h
-									canvas.width = e.w
-									ctx.clearRect(0,0,canvas.width,canvas.height)
-									const vert = e.h > e.w
-									const small = Math.min(e.h,e.w)
-									for (let i=0;i<Math.max(e.h,e.w);i++) {
-										ctx.drawImage(tileImgs[e.img],vert ? 0 : i*small,vert ? i*small : 0,small,small)
-									}
-									box.render.sprite.texture = canvas.toDataURL()
+							mapJSON = r
+							/*const canvas = document.createElement("canvas")
+							document.body.appendChild(canvas)
+							canvas.style.imageRendering = "pixelated"*/
+							mapJSON.filter(o => o.type == 0 || o.type == 2).forEach((e) => {
+								let mul = e.rot == undefined ? 1 : 0
+								//alert((e.x+mul*e.w/2)+","+(e.y+mul*e.h/2))
+								const box = Bodies.rectangle(e.x+mul*e.w/2,e.y+mul*e.h/2,e.w,e.h,Object.assign(e.o ?? {},{"isStatic":true}))
+								if (e.type == 2) {
+									box.collisionFilter.category = 2
+									maxeat += 10
 								}
-								Body.setStatic(box,true)
+								box.oData = e
+								if (e.img) {
+									genBoxImg(box,e)
+								}
+								if (e.rot) {
+									Body.setAngle(box,e.rot)
+								}
+								//Body.setStatic(box,true)
 								map.push(box)
+								if (e.type == 2) uran.push(box)
 								Composite.add(engine.world, box)
 							})
+							//canvas.remove()
+							
 							// run the renderer
 							Render.run(render);
 							
@@ -153,14 +182,15 @@
 			Constraint = Matter.Constraint,
 			Composites = Matter.Composites,
 			Body = Matter.Body,
-			Bounds = Matter.Bounds
-			Collision = Matter.Collision;
+			Bounds = Matter.Bounds,
+			Collision = Matter.Collision,
+			Query = Matter.Query;
 			
 			Matter.Common.setDecomp(decomp)
 			
 			const defaultMask = 0x0001
 			
-			let controls = [{"x":10,"y":490,"w":50,"h":50,"value":0,"bgcol":"#0FF","bcol":"#000","col":"#0AF","text":"<","act":function(){this.value = -0.002},"deact":function(){this.value = 0}},{"x":110,"y":490,"w":50,"h":50,"value":0,"bcol":"#000","bgcol":"#0FF","col":"#0AF","text":">","act":function(){this.value = 0.002},"deact":function(){this.value = 0}},{"x":60,"y":440,"w":50,"h":50,"value":0,"bgcol":"#0FF","bcol":"#000","col":"#0AF","text":"/\\","act":function(){this.value = -0.0025},"deact":function(){this.value = 0}},{"x":60,"y":540,"w":50,"h":50,"value":0,"bgcol":"#0FF","bcol":"#000","col":"#0AF","text":"\\/","act":function(){this.value = 0.0025},"deact":function(){this.value = 0}},{"x":750,"y":50,"w":50,"h":500,"value":0.02/0.04,"bgcol":"#0FF","bcol":"#000","col":"#0AF","fill":0.02/0.04,"react":true,"act":function(off){this.value = Math.min(Math.max(1-(off[1]/this.h),0),1);player.bodyCons.forEach((e) => {e.stiffness = 0.001+0.019*this.value});this.fill=this.value}},{"x":60,"y":490,"w":50,"h":50,"time":0,"max":0,"bgcol":"#0FF","bcol":"#000","col":"#0AF","img":"./images/sound.png","act":function () {const ind = Math.floor(Math.random()*6);audios[ind].play();this.time = dur[ind];this.max = this.time;}}]
+			let controls = [{"x":20,"y":860,"w":100,"h":100,"value":0,"bgcol":"#0FF","bcol":"#000","col":"#0AF","text":"<","act":function(){this.value = -0.002},"deact":function(){this.value = 0}},{"x":220,"y":860,"w":100,"h":100,"value":0,"bcol":"#000","bgcol":"#0FF","col":"#0AF","text":">","act":function(){this.value = 0.002},"deact":function(){this.value = 0}},{"x":120,"y":760,"w":100,"h":100,"value":0,"bgcol":"#0FF","bcol":"#000","col":"#0AF","text":"/\\","act":function(){this.value = -0.0025},"deact":function(){this.value = 0}},{"x":120,"y":960,"w":100,"h":100,"value":0,"bgcol":"#0FF","bcol":"#000","col":"#0AF","text":"\\/","act":function(){this.value = 0.0025},"deact":function(){this.value = 0}},{"x":1820,"y":40,"w":100,"h":1000,"value":0.02/0.04,"bgcol":"#0FF","bcol":"#000","col":"#0AF","fill":0.02/0.04,"react":true,"act":function(off){this.value = Math.min(Math.max(1-(off[1]/this.h),0),1);player.bodyCons.forEach((e) => {e.stiffness = 0.001+0.019*this.value});this.fill=this.value}},{"x":120,"y":860,"w":100,"h":100,"time":0,"max":0,"bgcol":"#0FF","bcol":"#000","col":"#0AF","img":"./images/sound.png","act":function () {const ind = Math.floor(Math.random()*6);audios[ind].play();this.time = dur[ind];this.max = this.time;}}]
 			
 			controls.forEach((e) => {
 				if (e.img) {
@@ -168,6 +198,22 @@
 					e.Img.src = e.img
 				}
 			})
+			
+			function genBoxImg(box,e) {
+				ctx.clearRect(0,0,canvas.width,canvas.height)
+				const vert = e.h > e.w
+				const small = Math.min(e.h,e.w)
+				const res = small/16
+				canvas.height = e.h/res
+				canvas.width = e.w/res
+				for (let i=0;i<Math.max(e.h,e.w);i++) {
+					ctx.drawImage(tileImgs[e.img],vert ? 0 : i*small/res,vert ? i*small/res : 0,small/res,small/res)
+				}
+				box.render.sprite.texture = canvas.toDataURL()
+				box.render.sprite.xScale = res
+				box.render.sprite.yScale = res
+				return canvas.toDataURL()
+			}
 			
 			// create an engine
 			var engine = Engine.create({enableSleeping: false});
@@ -179,28 +225,32 @@
 				options: {
 					wireframes: false,
 					background: "#88FFFF",
-					hasBounds: true
+					hasBounds: true,
+					height: 1080,
+					width: 1920,
 				}
 			});
+			
+			render.context.webkitImageSmoothingEnabled = false
+			render.context.mozImageSmoothingEnabled = false
+			render.context.imageSmoothingEnabled = false
 			
 			render.canvas.addEventListener("wheel",function (e) {
 				e.preventDefault()
 				let slider = controls[4]
-				slider.act([0,slider.value*slider.h+slider.y+Math.sign(e.deltaY)/10])
+				slider.act([0,slider.h-(slider.value*slider.h)+Math.sign(e.deltaY)*50])
 			})
 			
 			let map = []
+			let uran = []
+			let particles = []
 			
 			let circle = []
 			/*let circlewalls = []
 			let circlewalls2 = []*/
 			const circDet = 20
 			for (let i=0;i<circDet;i++) {
-				const cur = Bodies.circle(25*Math.cos(i*Math.PI/circDet*2),25*Math.sin(i*Math.PI/circDet*2),2,{
-					"collisionFilter": {
-						"mask": defaultMask
-					}
-				})
+				const cur = Bodies.circle(25*Math.cos(i*Math.PI/circDet*2),25*Math.sin(i*Math.PI/circDet*2),2,{})
 				/*const bet = Bodies.rectangle(0,0,1,10,{
 					"collisionFilter": {
 						"category": 2,
@@ -228,11 +278,7 @@
 					"mask": defaultMask | 0x0002
 				}
 			})*/
-			const eyes = Bodies.fromVertices(0, 0, [/*{"x":-12.5,"y":-6.5},{"x":-12.5,"y":-7.5},{"x":-11.5,"y":-7.5},{"x":0,"y":-1},{"x":12.5,"y":-6.5},{"x":12.5,"y":-7.5},{"x":11.5,"y":-7.5},{"x":1,"y":0},{"x":12.5,"y":6.5},{"x":12.5,"y":7.5},{"x":11.5,"y":7.5},{"x":0,"y":1},{"x":-12.5,"y":6.5},{"x":-12.5,"y":7.5},{"x":-11.5,"y":7.5},{"x":-1,"y":0}*/{"x":-12.5,"y":-6.5},{"x":-12.5,"y":-7.5},{"x":-11.5,"y":-7.5},{"x":0,"y":-1},{"x":11.5,"y":-7.5},{"x":12.5,"y":-7.5},{"x":12.5,"y":-6.5},{"x":1,"y":0},{"x":12.5,"y":6.5},{"x":12.5,"y":7.5},{"x":11.5,"y":7.5},{"x":0,"y":1},{"x":-11.5,"y":7.5},{"x":-12.5,"y":7.5},{"x":-12.5,"y":6.5},{"x":-1,"y":0}], {
-				"collisionFilter": {
-					"mask": defaultMask | 0x0002
-				}
-			})
+			const eyes = Bodies.fromVertices(0, 0, [/*{"x":-12.5,"y":-6.5},{"x":-12.5,"y":-7.5},{"x":-11.5,"y":-7.5},{"x":0,"y":-1},{"x":12.5,"y":-6.5},{"x":12.5,"y":-7.5},{"x":11.5,"y":-7.5},{"x":1,"y":0},{"x":12.5,"y":6.5},{"x":12.5,"y":7.5},{"x":11.5,"y":7.5},{"x":0,"y":1},{"x":-12.5,"y":6.5},{"x":-12.5,"y":7.5},{"x":-11.5,"y":7.5},{"x":-1,"y":0}*/{"x":-12.5,"y":-6.5},{"x":-12.5,"y":-7.5},{"x":-11.5,"y":-7.5},{"x":0,"y":-1},{"x":11.5,"y":-7.5},{"x":12.5,"y":-7.5},{"x":12.5,"y":-6.5},{"x":1,"y":0},{"x":12.5,"y":6.5},{"x":12.5,"y":7.5},{"x":11.5,"y":7.5},{"x":0,"y":1},{"x":-11.5,"y":7.5},{"x":-12.5,"y":7.5},{"x":-12.5,"y":6.5},{"x":-1,"y":0}], {})
 			Body.setMass(eyes,5)
 			Composite.add(engine.world, eyes)
 			
@@ -284,7 +330,7 @@
 			map.push(wallb)
 			Composite.add(engine.world, wallb)*/
 			
-			let camBounds = Bounds.create([{"x":0,"y":0},{"x":800,"y":600}])
+			let camBounds = Bounds.create([{"x":0,"y":0},{"x":960,"y":540}])
 			render.bounds = camBounds
 			
 			render.canvas.style.width = "100%";
@@ -305,7 +351,7 @@
 				if (e.contInd == undefined) {
 					const worldLoc = [camBounds.min.x+loc[0],camBounds.min.y+loc[1]]
 					e.world = true
-					player.targLoc = loc
+					player.targLoc = [loc[0]/2,loc[1]/2]
 				}
 				maice[e.pointerId] = e
 			})
@@ -331,7 +377,7 @@
 				if ((maice[e.pointerId] ?? {}).world) {
 					const worldLoc = [camBounds.min.x+loc[0],camBounds.min.y+loc[1]]
 					e.world = true
-					player.targLoc = loc
+					player.targLoc = [loc[0]/2,loc[1]/2]
 				}
 				maice[e.pointerId] = e
 			})
@@ -344,11 +390,13 @@
 				if ((maice[e.pointerId] ?? {}).world) player.mouseWorldLoc = undefined
 				maice[e.pointerId] = undefined
 			})
+			//let f = 0
 			let colcount = [0,0,0,0]
+			let eaten = 0
 			Matter.Events.on(engine, "beforeUpdate", (t,o,n) => {
 				const gravity = engine.world.gravity
 				colcount = [0,0,0,0]
-				map.forEach((e) => {
+				Composite.allBodies(engine.world).filter(b => b != player.eyes && !player.body.includes(b)).forEach((e) => {
 					player.body.forEach((r) => {
 						let coll
 						if ((coll = Collision.collides(e,r))) {
@@ -356,14 +404,78 @@
 							else if (coll.normal.y < -0.5) colcount[0]++
 							else if (coll.normal.x > 0.5) colcount[3]++
 							else if (coll.normal.x < -0.5) colcount[1]++
+							if (e.uran) {
+								Composite.remove(engine.world,e)
+								eaten++
+								if (eaten == maxeat) {
+									localStorage.setItem("lev"+level+"c",true)
+									window.location = "./levelSelect.html"
+								}
+								e.uran = false
+							}
 						}
 					})
 				})
-				Body.applyForce(player.eyes,player.eyes.position,{"x":controls[0].value+controls[1].value,"y":controls[2].value*colcount[0]+controls[3].value})
+				
+				Body.applyForce(player.eyes,player.eyes.position,{"x":controls[0].value+controls[1].value,"y":controls[2].value*Math.max(colcount[0],Math.min(colcount[1],colcount[3])/3)+controls[3].value})
+				
 				Body.applyForce(player.eyes, player.eyes.position, {x: -gravity.x * gravity.scale * player.eyes.mass,y: -gravity.y * gravity.scale * player.eyes.mass});
 				Body.setAngle(player.eyes, Math.PI/2+Math.atan2(player.eyes.position.y-player.targLoc[1]-camBounds.min.y,player.eyes.position.x-player.targLoc[0]-camBounds.min.x))
 				Body.setAngularVelocity(player.eyes,0)
 				controls[5].time -= t.delta
+				uran.forEach((e) => {
+					let force = 0
+					const coll = Query.collides(e,player.body)
+					coll.forEach((r) => {
+						force += r.depth
+					})
+					//f = force
+					if (force > 6) {
+						if (e.oData.type == 2) {
+							e.oData.type = 2.1
+							e.oData.img = "uranium broken"
+							genBoxImg(e,e.oData)
+							for (let i=0;i<30;i++) {
+								let part = Bodies.circle(e.position.x,e.position.y,5,{
+									"render": {
+										"fillStyle": "#0FF7"
+									},
+									"collisionFilter": {
+										"mask": 0x0001
+									}
+								})
+								const ang = Math.random()*Math.PI*2
+								Body.setVelocity(part,{"x":Math.cos(ang)*5,"y":Math.sin(ang)*5})
+								Composite.add(engine.world,part)
+								part.maxLife = 1000+Math.random()*2000
+								particles.push(part)
+							}
+						} else if (e.oData.type == 2.2) {
+							e.oData.type = 0
+							e.oData.img = "uranium empty"
+							genBoxImg(e,e.oData)
+							for (let i=0;i<10;i++) {
+								let part = Bodies.circle(e.position.x,e.position.y,5,{
+									"render": {
+										"fillStyle": Math.random() < 0.5 ? "#9F0" : "#676767"
+									},
+									"collisionFilter": {
+										"mask": 0x0001
+									}
+								})
+								part.uran = true
+								const ang = Math.random()*Math.PI*2
+								Body.setVelocity(part,{"x":3*Math.cos(ang),"y":3*Math.sin(ang)})
+								Composite.add(engine.world,part)
+							}
+							e.collisionFilter.mask = 0x0000
+						} 
+					} else if (force < 2 && e.oData.type == 2.1) e.oData.type = 2.2
+				})
+				particles.forEach((e) => {
+					e.maxLife -= t.delta
+					if (e.maxLife < 0) Composite.remove(engine.world,e)
+				})
 				/*render.context.font = "20px Arial"
 				player.body.forEach((e,ee) => {
 					let wall = player.bodyWalls[ee]
@@ -400,11 +512,27 @@
 				})*/
 				player.x = average(player.body.map(b => b.position.x))
 				player.y = average(player.body.map(b => b.position.y))
-				Matter.Bounds.shift(camBounds, {"x":player.x-416,"y":player.y-316})
+				Matter.Bounds.shift(camBounds, {"x":player.x-496,"y":player.y-286})
 				render.canvas.style.width = Math.min(100,(100/(render.canvas.height/render.canvas.width))*(window.innerHeight/window.innerWidth))+"%";
 			})
 			Matter.Events.on(render, "afterRender", (t,o,n) => {
+				render.context.lineWidth = 1
+				render.context.setTransform(2,0,0,2,0,0)
 				render.context.fillStyle = "#000"
+				render.context.textAlign = "center"
+				render.context.textBaseline = "middle"
+				mapJSON.filter(o => o.type == 1).forEach((e) => {
+					if (e.visible ?? true) {
+						render.context.font = e.size+"px Arial"
+						render.context.fillText(e.text,e.x-camBounds.min.x,e.y-camBounds.min.y)
+					} else {
+						if (Math.hypot(e.x-player.x,e.y-player.y) <= e.range) {
+							setTimeout((r) => {
+								r.visible = true
+							},(e.delay ?? 0),e)
+						}
+					}
+				})
 				render.context.beginPath()
 				render.context.moveTo(player.body[0].position.x-camBounds.min.x,player.body[0].position.y-camBounds.min.y)
 				player.body.toReversed().forEach((e) => {
@@ -436,6 +564,8 @@
 					render.context.fill()
 				}
 				
+				render.context.lineWidth = 3
+				
 				/*render.context.beginPath();
 				render.context.moveTo(100, 200);
 				render.context.bezierCurveTo(150, 120, 250, 120, 300, 200);
@@ -457,9 +587,9 @@
 				render.context.fillStyle = '#000000';
 				render.context.fill();*/
 				
-				render.context.textAlign = "center"
-				render.context.textBaseline = "middle"
-				controls.forEach((e) => {
+				render.context.setTransform(1,0,0,1,0,0)
+				
+				controls.filter(c => c.visible ?? true).forEach((e) => {
 					render.context.fillStyle = e.bgcol
 					render.context.strokeStyle = e.bcol
 					render.context.fillRect(e.x,e.y,e.w,e.h)
@@ -475,6 +605,10 @@
 						if (e.Img.complete) render.context.drawImage(e.Img,e.x,e.y,e.w,e.h)
 					}
 				})
+				render.context.fillStyle = "#000"
+				render.context.font = "50px arial"
+				render.context.textAlign = "left"
+				render.context.fillText("Eaten: "+eaten+"/"+maxeat,10,35)
 				//render.context.fillText(JSON.stringify(colcount),400,300)
 			})
 		</script>

@@ -1,0 +1,86 @@
+<!doctype HTML>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+		<script>
+			addEventListener("error", (e) => {
+				alert(e.lineno+": "+e.message+"\nI")
+			});
+		</script>
+		<style>
+			canvas {
+				-webkit-user-select: none;
+				-moz-user-select: none;
+				-ms-user-select: none;
+				user-select: none;
+				-webkit-user-drag: none;
+				touch-action: none;
+				image-rendering: pixelated;
+			}
+		</style>
+	</head>
+	<body style="position:fixed;height:100%;width:100%;margin:0px;background-color:#AAAAAA;align-content: center;text-align: center;">
+		<canvas id="canvas" width="1920" height="1080" style="background-color:#8FF;"></canvas>
+		<script>
+			const ctx = canvas.getContext("2d")
+			ctx.textAlign = "center"
+			ctx.textBaseline = "middle"
+			ctx.lineWidth = 5
+			ctx.fillStyle = "#0AF"
+			let minLevel = -1
+			while (localStorage.getItem("lev"+(minLevel+1)+"c")) {
+				minLevel++
+			}
+			setInterval(() => {
+				canvas.style.width = Math.min(100,(100/(canvas.height/canvas.width))*(window.innerHeight/window.innerWidth))+"%";
+				banim.forEach((e) => {
+					e.size = (e.size+(e.target-e.size)/10)
+				})
+				ctx.setTransform(1,0,0,1,0,0)
+				ctx.clearRect(0,0,1920,1080)
+				ctx.translate(960/4*3,540/3*2)
+				ctx.rotate(Math.sin(performance.now()/1000)/Math.PI/10)
+				ctx.font = "135px Arial"
+				ctx.strokeText("Cats are liquid",0,0)
+				ctx.fillText("Cats are liquid",0,0)
+				ctx.setTransform(1,0,0,1,0,0)
+				ctx.font = "67.5px Arial"
+				ctx.translate(960/4*3,540/3*3.5)
+				ctx.scale(banim[0].size,banim[0].size)
+				ctx.strokeText(minLevel == -1 ? "Start" : "Continue",0,0)
+				ctx.fillText(minLevel == -1 ? "Start" : "Continue",0,0)
+				ctx.setTransform(1,0,0,1,0,0)
+				ctx.translate(960/4*3,540/3*4)
+				ctx.scale(banim[1].size,banim[1].size)
+				ctx.strokeText("Level select",0,0)
+				ctx.fillText("Level select",0,0)
+				ctx.setTransform(1,0,0,1,0,0)
+			})
+			canvas.addEventListener("pointerdown", function (e) {
+				const loc = [e.offsetX/canvas.offsetWidth*canvas.width,e.offsetY/canvas.offsetHeight*canvas.height]
+				if (Math.abs(loc[0]-960/4*3) <= (minLevel == -1 ? 142.55 : 270.20)/2 && Math.abs(loc[1]-540/3*3.5) <= 33.75) {
+					sessionStorage.setItem("level",minLevel+1)
+					window.location = "./game.html"
+				}
+				if (Math.abs(loc[0]-960/4*3) <= 356.45/2 && Math.abs(loc[1]-540/3*4) <= 33.75) window.location = "./levelSelect.html"
+			})
+			let maice = {}
+			let banim = [{"target":1,"size":1},{"target":1,"size":1}]
+			canvas.addEventListener("pointermove", function (e) {
+				const loc = [e.offsetX/canvas.offsetWidth*canvas.width,e.offsetY/canvas.offsetHeight*canvas.height]
+				const pre = (maice[e.pointerId] ?? {}).sel
+				if (Math.abs(loc[0]-960/4*3) <= (minLevel == -1 ? 142.55 : 270.20)/2 && Math.abs(loc[1]-540/3*3.5) <= 33.75) {
+					banim[0].target = 1.2
+					e.sel = 0
+				}
+				if (Math.abs(loc[0]-960/4*3) <= 356.45/2 && Math.abs(loc[1]-540/3*4) <= 33.75) {
+					banim[1].target = 1.2
+					e.sel = 1
+				}
+				if (e.sel != pre && pre != undefined) banim[pre].target = 1
+				maice[e.pointerId] = e
+			})
+		</script>
+	</body>
+</html>
