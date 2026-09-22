@@ -1,0 +1,135 @@
+[
+	{
+		"type": 0,
+		"x": -500,
+		"y": -500,
+		"w": 50,
+		"h": 530,
+		"img": "binary"
+	},
+	{
+		"type": 0,
+		"x": -450,
+		"y": -500,
+		"w": 1800,
+		"h": 50,
+		"img": "binary"
+	},
+	{
+		"type": 0,
+		"x": -500,
+		"y": 30,
+		"w": 550,
+		"h": 50,
+		"img": "grass"
+	},
+	{
+		"type": 1,
+		"x": 50,
+		"y": -75,
+		"size": 25,
+		"text": "Use WASD or the on-screen buttons to move"
+	},
+	{
+		"type": 0,
+		"x": 0,
+		"y": 80,
+		"w": 50,
+		"h": 150,
+		"img": "dirt"
+	},
+	{
+		"type": 0,
+		"x": 50,
+		"y": 180,
+		"w": 300,
+		"h": 50,
+		"img": "grass"
+	},
+	{
+		"type": 0,
+		"x": 350,
+		"y": 130,
+		"w": 500,
+		"h": 50,
+		"img": "grass"
+	},
+	{
+		"type": 0,
+		"x": 350,
+		"y": 180,
+		"w": 50,
+		"h": 50,
+		"img": "dirt"
+	},
+	{
+		"type": 0,
+		"x": 850,
+		"y": 30,
+		"w": 500,
+		"h": 50,
+		"img": "grass"
+	},
+	{
+		"type": 0,
+		"x": 850,
+		"y": 80,
+		"w": 50,
+		"h": 100,
+		"img": "dirt"
+	},
+	{
+		"type": 1,
+		"x": 850,
+		"y": 5,
+		"size": 10,
+		"text": "You can jump higher the more contact you have with the floor",
+		"range": 200,
+		"visible": false
+	},
+	{
+		"type": 1,
+		"x": 850,
+		"y": 205,
+		"size": 10,
+		"text": "Try pressing down before pressing up to get up this ledge",
+		"range": 200,
+		"delay": 1000,
+		"visible": false
+	},
+	{
+		"type": 2,
+		"x": 1300,
+		"y": -20,
+		"w": 50,
+		"h": 50,
+		"img": "uranium"
+	},
+	{
+		"type": 1,
+		"x": 1325,
+		"y": -40,
+		"size": 10,
+		"text": "Wonder who left their case of bright yellow-green painted uranium here?",
+		"range": 200,
+		"visible": false
+	},
+	{
+		"type": 1,
+		"x": 1325,
+		"y": -30,
+		"size": 10,
+		"text": "Sure would be a shame if someone came along, stole it, and ate it",
+		"range": 200,
+		"delay": 2000,
+		"visible": false
+	},
+	{
+		"type": 0,
+		"x": 1350,
+		"y": -500,
+		"w": 50,
+		"h": 580,
+		"img": "binary"
+	}
+]
