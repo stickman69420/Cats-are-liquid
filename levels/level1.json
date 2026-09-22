@@ -1,0 +1,242 @@
+[
+	{
+		"type": 0,
+		"x": 500,
+		"y": -400,
+		"w": 3000,
+		"h": 1000,
+		"img": "stone",
+		"tint": "#0003",
+		"small": 50,
+		"o": {
+			"collisionFilter": {
+				"mask": 0
+			}
+		}
+	},
+	{
+		"type": 0,
+		"x": -300,
+		"y": 30,
+		"w": 800,
+		"h": 50,
+		"img": "grass"
+	},
+	{
+		"type": 0,
+		"x": -350,
+		"y": -450,
+		"w": 50,
+		"h": 530,
+		"img": "binary"
+	},
+	{
+		"type": 0,
+		"x": -300,
+		"y": -450,
+		"w": 850,
+		"h": 50,
+		"img": "binary"
+	},
+	{
+		"type": 0,
+		"x": 750,
+		"y": -20,
+		"w": 500,
+		"h": 50,
+		"rot": 0.0327249,
+		"img": "stone"
+	},
+	{
+		"type": 0,
+		"x": 500,
+		"y": 30,
+		"w": 500,
+		"h": 50,
+		"img": "stone"
+	},
+	{
+		"type": 0,
+		"x": 500,
+		"y": -400,
+		"w": 50,
+		"h": 380,
+		"img": "stone"
+	},
+	{
+		"type": 1,
+		"x": 325,
+		"y": 5,
+		"size": 10,
+		"text": "You can smell some more in this cave",
+		"range": 150,
+		"visible": false
+	},
+	{
+		"type": 1,
+		"x": 525,
+		"y": 5,
+		"size": 10,
+		"text": "Don't ask how I know I just do okay?",
+		"range": 150,
+		"visible": false
+	},
+	{
+		"type": 0,
+		"x": 990,
+		"y": -37.5,
+		"w": 100,
+		"h": 50,
+		"img": "stone"
+	},
+	{
+		"type": 0,
+		"x": 1040,
+		"y": 12.5,
+		"w": 50,
+		"h": 150,
+		"img": "stone"
+	},
+	{
+		"type": 0,
+		"x": 950,
+		"y": 72.5,
+		"w": 50,
+		"h": 120,
+		"img": "stone"
+	},
+	{
+		"type": 0,
+		"x": 950,
+		"y": 191.5,
+		"w": 225,
+		"h": 50,
+		"img": "stone"
+	},
+	{
+		"type": 0,
+		"x": 1125,
+		"y": 52.5,
+		"w": 50,
+		"h": 140,
+		"img": "stone"
+	},
+	{
+		"type": 1,
+		"x": 1062.5,
+		"y": 250,
+		"size": 10,
+		"text": "You can also climb up if you have walls on both sides",
+		"range": 150,
+		"visible": false
+	},
+	{
+		"type": 0,
+		"x": 1174,
+		"y": 52.5,
+		"w": 416,
+		"h": 50,
+		"img": "stone"
+	},
+	{
+		"type": 0,
+		"x": 1090,
+		"y": -37.5,
+		"w": 50,
+		"h": 50,
+		"img": "stone"
+	},
+	{
+		"type": 0,
+		"x": 1124,
+		"y": -187.5,
+		"w": 50,
+		"h": 200,
+		"img": "stone"
+	},
+	{
+		"type": 0,
+		"x": 1174,
+		"y": -187.5,
+		"w": 366,
+		"h": 50,
+		"img": "stone"
+	},
+	{
+		"type": 0,
+		"x": 1540,
+		"y": -187.5,
+		"w": 50,
+		"h": 225,
+		"img": "stone"
+	},
+	{
+		"type": 1,
+		"x": 1357,
+		"y": -60,
+		"size": 10,
+		"text": "You might need to lower your firmness to fit through some gaps",
+		"range": 150,
+		"visible": false
+	},
+	{
+		"type": 1,
+		"x": 1357,
+		"y": -50,
+		"size": 10,
+		"text": "You can use the bar on the right or your scroll wheel to adjust it",
+		"range": 150,
+		"delay": 1000,
+		"visible": false
+	},
+	{
+		"type": 1,
+		"x": 1357,
+		"y": -40,
+		"size": 10,
+		"text": "You might also need to rotate a bit to fit through",
+		"range": 150,
+		"delay": 2000,
+		"visible": false
+	},
+	{
+		"type": 0,
+		"x": 1590,
+		"y": -12.5,
+		"w": 50,
+		"h": 50,
+		"img": "stone"
+	},
+	{
+		"type": 0,
+		"x": 1640,
+		"y": -12.5,
+		"w": 50,
+		"h": 225,
+		"img": "stone"
+	},
+	{
+		"type": 0,
+		"x": 1590,
+		"y": 162.5,
+		"w": 50,
+		"h": 50,
+		"img": "stone"
+	},
+	{
+		"type": 0,
+		"x": 1540,
+		"y": 87.5,
+		"w": 50,
+		"h": 125,
+		"img": "stone"
+	},
+	{
+		"type": 2,
+		"x": 1590,
+		"y": 112.5,
+		"w": 50,
+		"h": 50,
+		"img": "uranium"
+	}
+]
