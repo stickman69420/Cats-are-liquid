@@ -45,21 +45,22 @@
 					//alert("a")
 					const response = await fetch(request);
 					//alert(await response.text())
+					//if (JSON.parse(await response.text()) == undefined) throw new Error("Cannot load JSON")
 					const done = await response.json()
 					func(done,...args)
-					imageLoaded()
+					//imageLoaded()
 					return(done)
 				} catch (err) {
 					//errfunc(...args)
-					//alert(err)
-					throw new Error("Invalid level - "+err.line+": "+err.message)
+					alert(err)
+					//throw new Error("Invalid level - "+err.line+": "+err.message)
 				}
 			}
 			
-			const imgNames = ["glass","grass top","tile","tile cracked","tile wall","tile wall cracked","tiles","tiles cracked","tiles wall","tiles wall cracked","water","wet grass","uranium","uranium broken","uranium empty","grass","dirt","binary","stone"]
+			const imgNames = ["glass","grass top","tile","tile cracked","tile wall","tile wall cracked","tiles","tiles cracked","tiles wall","tiles wall cracked","water","wet grass","uranium","uranium broken","uranium empty","grass","dirt","binary","stone","faint","vent"]
 			let tileImgs = {}
 			
-			const level = sessionStorage.getItem("level") ?? 1
+			const level = sessionStorage.getItem("level") ?? 2
 			if (level == undefined || level < 0) throw new Error("Invalid level")
 			let loadc = 0
 			let loadm = imgNames.length
@@ -114,10 +115,11 @@
 							/*const canvas = document.createElement("canvas")
 							document.body.appendChild(canvas)
 							canvas.style.imageRendering = "pixelated"*/
-							mapJSON.filter(o => o.type == 0 || o.type == 2).forEach((e) => {
+							mapJSON.filter(o => o.type == 0 || o.type == 2 || o.type == 3 || o.type == 4).forEach((e) => {
 								let mul = e.rot == undefined ? 1 : 0
 								//alert((e.x+mul*e.w/2)+","+(e.y+mul*e.h/2))
 								const box = Bodies.rectangle(e.x+mul*e.w/2,e.y+mul*e.h/2,e.w,e.h,Object.assign(e.o ?? {},{"isStatic":true}))
+								if (e.type == 3 || e.type == 4) box.isSensor = true
 								if (e.type == 2) {
 									box.collisionFilter.category = 2
 									maxeat += 10
@@ -184,7 +186,8 @@
 			Body = Matter.Body,
 			Bounds = Matter.Bounds,
 			Collision = Matter.Collision,
-			Query = Matter.Query;
+			Query = Matter.Query,
+			Vector = Matter.Vector;
 			
 			Matter.Common.setDecomp(decomp)
 			
@@ -202,13 +205,17 @@
 			function genBoxImg(box,e) {
 				ctx.clearRect(0,0,canvas.width,canvas.height)
 				const vert = e.h > e.w
-				const small = Math.min(e.h,e.w)
-				const res = small/16
+				const small = e.small ?? Math.min(e.h,e.w)
+				const res = small/32
 				canvas.height = e.h/res
 				canvas.width = e.w/res
-				for (let i=0;i<Math.max(e.h,e.w);i++) {
-					ctx.drawImage(tileImgs[e.img],vert ? 0 : i*small/res,vert ? i*small/res : 0,small/res,small/res)
+				for (let i=0;i<e.w/small;i++) {
+					for (let j=0;j<e.h/small;j++) {
+						ctx.drawImage(tileImgs[e.img],i*small/res,j*small/res,small/res,small/res)
+					}
 				}
+				ctx.fillStyle = e.tint ?? "#0000"
+				ctx.fillRect(0,0,canvas.width,canvas.height)
 				box.render.sprite.texture = canvas.toDataURL()
 				box.render.sprite.xScale = res
 				box.render.sprite.yScale = res
@@ -337,6 +344,7 @@
 			render.canvas.style.overflow = "hidden";
 			
 			let maice = {}
+			let particles2 = []
 			
 			const average = array => array.reduce((a, b) => a + b) / array.length;
 			
@@ -396,25 +404,45 @@
 			Matter.Events.on(engine, "beforeUpdate", (t,o,n) => {
 				const gravity = engine.world.gravity
 				colcount = [0,0,0,0]
-				Composite.allBodies(engine.world).filter(b => b != player.eyes && !player.body.includes(b)).forEach((e) => {
+				Composite.allBodies(engine.world).filter(b => b != player.eyes && !player.body.includes(b) && b.collisionFilter.mask != 0x0000).forEach((e) => {
 					player.body.forEach((r) => {
 						let coll
 						if ((coll = Collision.collides(e,r))) {
-							if (coll.normal.y > 0.5) colcount[2]++
-							else if (coll.normal.y < -0.5) colcount[0]++
-							else if (coll.normal.x > 0.5) colcount[3]++
-							else if (coll.normal.x < -0.5) colcount[1]++
-							if (e.uran) {
-								Composite.remove(engine.world,e)
-								eaten++
-								if (eaten == maxeat) {
-									localStorage.setItem("lev"+level+"c",true)
-									window.location = "./levelSelect.html"
+							if (e.isSensor) {
+								if (e.oData.force) {
+									//alert(JSON.stringify(e.oData.force))
+									Body.applyForce(r,r.position,e.oData.force)
 								}
-								e.uran = false
+								if (e.oData.type == 4) {
+									Body.setSpeed(r,Body.getSpeed(r)*(controls[4].value > 0.25 ? 0 : 0.75))
+									if (controls[4].value > 0.25) {
+										//const v = Math.abs(coll.normal.y) > Math.abs(coll.normal.x)
+										Body.translate(r,coll.penetration/*Vector.mult({"x":v ? 0 : coll.normal.x,"y":v ? coll.normal.y : 0},coll.depth)*/)
+									}
+								}
+							} else {
+								if (coll.normal.y > 0.5) colcount[2]++
+								else if (coll.normal.y < -0.5) colcount[0]++
+								else if (coll.normal.x > 0.5) colcount[3]++
+								else if (coll.normal.x < -0.5) colcount[1]++
+								if (e.uran) {
+									Composite.remove(engine.world,e)
+									eaten++
+									if (eaten == maxeat) {
+										localStorage.setItem("lev"+level+"c",true)
+										setTimeout(() => {
+											window.location = "./levelSelect.html"
+										},2000)
+									}
+									e.uran = false
+								}
 							}
 						}
 					})
+				})
+				
+				mapJSON.filter(o => o.type == 3).forEach((e) => {
+					if (particles2.filter(p => p[2] == e).length < e.w*e.h/100) particles2.push([e.x+Math.random()*e.w,e.y+Math.random()*e.h,e])
 				})
 				
 				Body.applyForce(player.eyes,player.eyes.position,{"x":controls[0].value+controls[1].value,"y":controls[2].value*Math.max(colcount[0],Math.min(colcount[1],colcount[3])/3)+controls[3].value})
@@ -518,6 +546,19 @@
 			Matter.Events.on(render, "afterRender", (t,o,n) => {
 				render.context.lineWidth = 1
 				render.context.setTransform(2,0,0,2,0,0)
+				render.context.fillStyle = "#FFF7"
+				particles2.forEach((e,ee) => {
+					render.context.beginPath()
+					render.context.arc(e[0]-camBounds.min.x,e[1]-camBounds.min.y,2,Math.PI*2,0)
+					render.context.fill()
+					e[0] += e[2].force.x*500
+					e[1] += e[2].force.y*500
+					if (e[0] < e[2].x || e[0] > e[2].x+e[2].w || e[1] < e[2].y || e[1] > e[2].y+e[2].h) e.dead = true
+				})
+				let dpa
+				while (1+(dpa = particles2.findIndex(p => p.dead))) {
+					particles2.splice(dpa,1)
+				}
 				render.context.fillStyle = "#000"
 				render.context.textAlign = "center"
 				render.context.textBaseline = "middle"
@@ -610,6 +651,12 @@
 				render.context.textAlign = "left"
 				render.context.fillText("Eaten: "+eaten+"/"+maxeat,10,35)
 				//render.context.fillText(JSON.stringify(colcount),400,300)
+				if (eaten == maxeat) {
+					render.context.fillStyle = "#0F0"
+					render.context.font = "150px arial"
+					render.context.textAlign = "center"
+					render.context.fillText("You did the level",960,540)
+				}
 			})
 		</script>
 	</body>
