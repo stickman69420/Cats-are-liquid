@@ -115,15 +115,17 @@
 							/*const canvas = document.createElement("canvas")
 							document.body.appendChild(canvas)
 							canvas.style.imageRendering = "pixelated"*/
-							mapJSON.filter(o => o.type == 0 || o.type == 2 || o.type == 3 || o.type == 4).forEach((e) => {
+							mapJSON.filter(o => o.type == 0 || o.type == 2 || o.type == 3 || o.type == 4 || o.type == 5).forEach((e) => {
 								let mul = e.rot == undefined ? 1 : 0
 								//alert((e.x+mul*e.w/2)+","+(e.y+mul*e.h/2))
 								const box = Bodies.rectangle(e.x+mul*e.w/2,e.y+mul*e.h/2,e.w,e.h,Object.assign(e.o ?? {},{"isStatic":true}))
 								if (e.type == 3 || e.type == 4) box.isSensor = true
 								if (e.type == 2) {
 									box.collisionFilter.category = 2
-									maxeat += 10
+									box.uranPel = (e.h*e.w)/((e.small ?? Math.min(e.h,e.w))**2)*10
+									maxeat += box.uranPel
 								}
+								if (e.type == 5) breaka.push(box)
 								box.oData = e
 								if (e.img) {
 									genBoxImg(box,e)
@@ -169,7 +171,7 @@
 					dur[i] = audios[i].duration*1000
 				})
 				audios[i].addEventListener("error", (e) => {
-					alert(e.currentTarget.error.code)
+					alert("Meow"+i+".mp3 failed to load ("+e.currentTarget.error.code+")")
 				});
 			}
 			
@@ -193,7 +195,7 @@
 			
 			const defaultMask = 0x0001
 			
-			let controls = [{"x":20,"y":860,"w":100,"h":100,"value":0,"bgcol":"#0FF","bcol":"#000","col":"#0AF","text":"<","act":function(){this.value = -0.002},"deact":function(){this.value = 0}},{"x":220,"y":860,"w":100,"h":100,"value":0,"bcol":"#000","bgcol":"#0FF","col":"#0AF","text":">","act":function(){this.value = 0.002},"deact":function(){this.value = 0}},{"x":120,"y":760,"w":100,"h":100,"value":0,"bgcol":"#0FF","bcol":"#000","col":"#0AF","text":"/\\","act":function(){this.value = -0.0025},"deact":function(){this.value = 0}},{"x":120,"y":960,"w":100,"h":100,"value":0,"bgcol":"#0FF","bcol":"#000","col":"#0AF","text":"\\/","act":function(){this.value = 0.0025},"deact":function(){this.value = 0}},{"x":1820,"y":40,"w":100,"h":1000,"value":0.02/0.04,"bgcol":"#0FF","bcol":"#000","col":"#0AF","fill":0.02/0.04,"react":true,"act":function(off){this.value = Math.min(Math.max(1-(off[1]/this.h),0),1);player.bodyCons.forEach((e) => {e.stiffness = 0.001+0.019*this.value});this.fill=this.value}},{"x":120,"y":860,"w":100,"h":100,"time":0,"max":0,"bgcol":"#0FF","bcol":"#000","col":"#0AF","img":"./images/sound.png","act":function () {const ind = Math.floor(Math.random()*6);audios[ind].play();this.time = dur[ind];this.max = this.time;}}]
+			let controls = [{"x":20,"y":860,"w":100,"h":100,"value":0,"bgcol":"#0FF","bcol":"#000","col":"#0AF","text":"<","act":function(){this.value = -0.002},"deact":function(){this.value = 0}},{"x":220,"y":860,"w":100,"h":100,"value":0,"bcol":"#000","bgcol":"#0FF","col":"#0AF","text":">","act":function(){this.value = 0.002},"deact":function(){this.value = 0}},{"x":120,"y":760,"w":100,"h":100,"value":0,"bgcol":"#0FF","bcol":"#000","col":"#0AF","text":"/\\","act":function(){this.value = -0.0025},"deact":function(){this.value = 0}},{"x":120,"y":960,"w":100,"h":100,"value":0,"bgcol":"#0FF","bcol":"#000","col":"#0AF","text":"\\/","act":function(){this.value = 0.0025},"deact":function(){this.value = 0}},{"x":1820,"y":40,"w":100,"h":1000,"value":0.02/0.04,"bgcol":"#0FF","bcol":"#000","col":"#0AF","fill":0.02/0.04,"react":true,"act":function(off){this.value = Math.min(Math.max(1-(off[1]/this.h),0),1);player.bodyCons.forEach((e) => {e.stiffness = 0.001+0.019*this.value});this.fill=this.value}},{"x":120,"y":860,"w":100,"h":100,"time":0,"max":0,"bgcol":"#0FF","bcol":"#000","col":"#0AF","img":"./images/sound.png","act":function () {const ind = Math.floor(Math.random()*6);audios[ind].play();this.time = dur[ind];this.max = this.time;}},{"x":0,"y":70,"w":100,"h":100,"value":0,"bgcol":"#0FF","bcol":"#000","col":"#000","text":"Level select","act":function(){if (confirm("Are you sure you want to return to the level select?")) window.location = "./levelSelect.html"}}]
 			
 			controls.forEach((e) => {
 				if (e.img) {
@@ -221,6 +223,8 @@
 				box.render.sprite.yScale = res
 				return canvas.toDataURL()
 			}
+			
+			let touch = true
 			
 			// create an engine
 			var engine = Engine.create({enableSleeping: false});
@@ -250,6 +254,7 @@
 			
 			let map = []
 			let uran = []
+			let breaka = []
 			let particles = []
 			
 			let circle = []
@@ -348,7 +353,42 @@
 			
 			const average = array => array.reduce((a, b) => a + b) / array.length;
 			
+			render.canvas.addEventListener("keydown", function(e) {
+				switch (e.key) {
+					case "w":
+						controls[2].act()
+						break;
+					case "s":
+						controls[3].act()
+						break;
+					case "a":
+						controls[0].act()
+						break;
+					case "d":
+						controls[1].act()
+						break;
+				}
+			})
+			
+			render.canvas.addEventListener("keyup", function(e) {
+				switch (e.key) {
+					case "w":
+						controls[2].deact()
+						break;
+					case "s":
+						controls[3].deact()
+						break;
+					case "a":
+						controls[0].deact()
+						break;
+					case "d":
+						controls[1].deact()
+						break;
+				}
+			})
+			
 			render.canvas.addEventListener("pointerdown", function(e) {
+				if (e.buttons == 2) controls[5].act()
 				const loc = [e.offsetX/render.canvas.offsetWidth*render.canvas.width,e.offsetY/render.canvas.offsetHeight*render.canvas.height]
 				controls.forEach((ee,i) => {
 					if ((!ee.touch || e.pointerType == "touch") && loc[0] > ee.x && loc[0] < ee.x+ee.w && loc[1] > ee.y && loc[1] < ee.y+ee.h) {
@@ -396,12 +436,13 @@
 					if (ee.deact) ee.deact([loc[0]-ee.x,loc[1]-ee.y])
 				}
 				if ((maice[e.pointerId] ?? {}).world) player.mouseWorldLoc = undefined
-				maice[e.pointerId] = undefined
+				delete maice[e.pointerId]
 			})
 			//let f = 0
 			let colcount = [0,0,0,0]
 			let eaten = 0
 			Matter.Events.on(engine, "beforeUpdate", (t,o,n) => {
+				if (Object.keys(maice).length > 0) touch = Object.values(maice).some(m => m.pointerType != "mouse")
 				const gravity = engine.world.gravity
 				colcount = [0,0,0,0]
 				Composite.allBodies(engine.world).filter(b => b != player.eyes && !player.body.includes(b) && b.collisionFilter.mask != 0x0000).forEach((e) => {
@@ -463,8 +504,8 @@
 							e.oData.type = 2.1
 							e.oData.img = "uranium broken"
 							genBoxImg(e,e.oData)
-							for (let i=0;i<30;i++) {
-								let part = Bodies.circle(e.position.x,e.position.y,5,{
+							for (let i=0;i<e.uranPel*3;i++) {
+								let part = Bodies.circle(e.position.x+(Math.random()-0.5)*e.oData.w,e.position.y+(Math.random()-0.5)*e.oData.h,5,{
 									"render": {
 										"fillStyle": "#0FF7"
 									},
@@ -482,8 +523,8 @@
 							e.oData.type = 0
 							e.oData.img = "uranium empty"
 							genBoxImg(e,e.oData)
-							for (let i=0;i<10;i++) {
-								let part = Bodies.circle(e.position.x,e.position.y,5,{
+							for (let i=0;i<e.uranPel;i++) {
+								let part = Bodies.circle(e.position.x+(Math.random()-0.5)*e.oData.w,e.position.y+(Math.random()-0.5)*e.oData.h,5,{
 									"render": {
 										"fillStyle": Math.random() < 0.5 ? "#9F0" : "#676767"
 									},
@@ -500,6 +541,41 @@
 						} 
 					} else if (force < 2 && e.oData.type == 2.1) e.oData.type = 2.2
 				})
+				breaka.forEach((e) => {
+					let force = 0
+					const coll = Query.collides(e,player.body)
+					coll.forEach((r) => {
+						force += r.depth
+					})
+					if (force > e.oData.strength) {
+						for (let i=0;i<(e.oData.w*e.oData.h)/((e.oData.small ?? Math.min(e.oData.h,e.oData.w))**2)*10;i++) {
+							ctx.width = 32
+							ctx.height = 32
+							ctx.clearRect(0,0,32,32)
+							ctx.drawImage(tileImgs[e.oData.img],0,0,32,32)
+							const pxdata = ctx.getImageData(Math.floor(Math.random()*32),Math.floor(Math.random()*32),1,1).data
+							let part = Bodies.circle(e.position.x+(Math.random()-0.5)*e.oData.w,e.position.y+(Math.random()-0.5)*e.oData.h,5,{
+								"render": {
+									"fillStyle": "rgba("+pxdata[0]+","+pxdata[1]+","+pxdata[2]+","+pxdata[3]/255+")"
+								},
+								"collisionFilter": {
+									"mask": 0x0001
+								}
+							})
+							const ang = Math.random()*Math.PI*2
+							Body.setVelocity(part,{"x":Math.cos(ang)*5,"y":Math.sin(ang)*5})
+							Composite.add(engine.world,part)
+							part.maxLife = 1000+Math.random()*2000
+							particles.push(part)
+						}
+						Composite.remove(engine.world,e)
+						e.dead = true
+					}
+				})
+				let dpa
+				while (1+(dpa = breaka.findIndex(p => p.dead))) {
+					breaka.splice(dpa,1)
+				}
 				particles.forEach((e) => {
 					e.maxLife -= t.delta
 					if (e.maxLife < 0) Composite.remove(engine.world,e)

@@ -50,6 +50,7 @@
 						}
 					}
 				}
+				if (loc[1] <= paddingY-10) window.location = "./index.html"
 			})
 			let maice = {}
 			canvas.addEventListener("pointermove",function (e) {
@@ -97,6 +98,12 @@
 				}
 				/*ctx.fillStyle = "#000"
 				ctx.fillText(d,400,300)*/
+				ctx.fillStyle = "#0AF"
+				ctx.setTransform(1,0,0,1,0,0)
+				ctx.fillRect(0,0,canvas.width,paddingY-10)
+				ctx.strokeRect(0,0,canvas.width,paddingY-10)
+				ctx.fillStyle = "#0FF"
+				ctx.fillText("Return",canvas.width/2,(paddingY-10)/2)
 			})
 			/*let d = 0
 			canvas.addEventListener("wheel",function (e) {
